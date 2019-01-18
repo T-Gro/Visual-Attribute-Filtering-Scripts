@@ -11,6 +11,38 @@ using ZootBataLabelsProcessing;
 
 namespace KnnProtobufCreator
 {
+  public class NamedHit
+  {
+    public float Distance { get; set; }
+    public string Img { get; set; }
+    public string Patch { get; set; }
+  }
+
+  class OverallDataAccessor
+  {
+    private static AllResults allClusters;
+    private static IDictionary<int, string> allImages;
+    private static IDictionary<int, string> allPatches;
+    private static Dictionary<Tuple<int, int>, ResultsRow> distanceLookup;
+
+    static OverallDataAccessor()
+    {
+      allClusters = AllResults.Load(@"G:\siret\zoot\protobuf\local-conv5-cleaned-shrinked-patchClusters.bin");
+      allImages = allClusters.ImageEncoding.Reverse();
+      allPatches = allClusters.PatchEncoding.Reverse();
+      distanceLookup = allClusters.Rows.ToDictionary(x => Tuple.Create(x.Query.ImageId, x.Query.PatchId));
+    }
+
+    public static IEnumerable<NamedHit> FindHitsInBigFile(string sampleImage, string samplePatch)
+    {
+      var imageId = allClusters.ImageEncoding[sampleImage];
+      var patchId = allClusters.PatchEncoding[samplePatch];
+      var distances = distanceLookup[Tuple.Create(imageId, patchId)];
+      var namedHits = distances.Hits.Select(x => new NamedHit{ Distance = x.Distance, Img = allImages[x.Hit.ImageId], Patch = allPatches[x.Hit.PatchId] });
+      return namedHits;
+    }
+  }
+
   class Program
   {
     static void Main(string[] args)
@@ -20,14 +52,11 @@ namespace KnnProtobufCreator
 
  
       var filteredClusters = AllResults.Load(@"G:\siret\zoot\protobuf\local-conv5-cleaned-shrinked-patchClusters.bin");
+  
 
-      var allClusters = AllResults.Load(@"G:\siret\zoot\protobuf\local-conv5-cleaned-shrinked-patchClusters.bin");
+      var hits = OverallDataAccessor.FindHitsInBigFile("dada","6x8");
 
-      
-
-
-      var distanceLookup = allClusters.Rows.ToDictionary(x => Tuple.Create(x.Query.ImageId, x.Query.PatchId));
-
+      Console.WriteLine(hits.Count());
 
       var zootLabels = ZootBataLabelsProcessing.ZootLabelProcessingTests.AllRecords;
       var byName = zootLabels.CreateIndex(x => new[]{x.id }).Unique();
