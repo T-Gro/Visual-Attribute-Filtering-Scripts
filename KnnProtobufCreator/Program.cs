@@ -19,13 +19,21 @@ namespace KnnProtobufCreator
       //SparkMasketBasketParsing();
 
  
-      var loaded = AllResults.Load(@"G:\siret\zoot\protobuf\local-conv5-cleaned-shrinked-patchClusters.bin");
+      var filteredClusters = AllResults.Load(@"G:\siret\zoot\protobuf\local-conv5-cleaned-shrinked-patchClusters.bin");
+
+      var allClusters = AllResults.Load(@"G:\siret\zoot\protobuf\local-conv5-cleaned-shrinked-patchClusters.bin");
+
+      
+
+
+      var distanceLookup = allClusters.Rows.ToDictionary(x => Tuple.Create(x.Query.ImageId, x.Query.PatchId));
+
 
       var zootLabels = ZootBataLabelsProcessing.ZootLabelProcessingTests.AllRecords;
       var byName = zootLabels.CreateIndex(x => new[]{x.id }).Unique();
-      var fromIdToName = loaded.ImageEncoding.ToDictionary(x => x.Value, x => Path.GetFileNameWithoutExtension(x.Key).ToLower());
+      var fromIdToName = filteredClusters.ImageEncoding.ToDictionary(x => x.Value, x => Path.GetFileNameWithoutExtension(x.Key).ToLower());
 
-      foreach (var r in loaded.Rows.Take(5))
+      foreach (var r in filteredClusters.Rows.Take(5))
       {
         var name = fromIdToName[r.Query.ImageId];
         var label = byName[name];
