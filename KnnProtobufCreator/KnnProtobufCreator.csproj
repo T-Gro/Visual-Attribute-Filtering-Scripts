@@ -78,8 +78,8 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\Source\Repos\Aglomera\src\Aglomera\Aglomera.csproj">
-      <Project>{16A5BE54-20D8-4942-B598-69CED9304E91}</Project>
+    <ProjectReference Include="..\Aglomera\Aglomera.csproj">
+      <Project>{fb2fdf74-dd6c-477f-8b11-388c31bf8668}</Project>
       <Name>Aglomera</Name>
     </ProjectReference>
     <ProjectReference Include="..\KnnResults.Domain\KnnResults.Domain.csproj">
