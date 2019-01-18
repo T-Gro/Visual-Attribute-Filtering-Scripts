@@ -16,7 +16,7 @@ namespace ZootBataLabelsProcessing
             var socks =
                 (from l in labels
                 let isSock = l.AllTags.Contains("socks")
-                select Tuple.Create(l, isSock ? rnd.NextDouble()/4 : rnd.NextDouble()+0.2))
+                select Tuple.Create(l, (float)(isSock ? rnd.NextDouble()/4 : rnd.NextDouble()+0.2)))
                 .ToList();
 
             var corrFactorSocks = socks.PointBiserialCorrelation(l => l.title.Contains("pono"));

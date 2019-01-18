@@ -25,9 +25,15 @@ namespace ZootBataLabelsProcessing
                  select new { lkp.Key, entry }).ToLookup(x => x.Key, x => x.entry);
         }
 
-        public static double PointBiserialCorrelation(this ICollection<Tuple<ZootLabel, double>> rankedList, Func<ZootLabel, bool> func)
+        public static double PointBiserialCorrelation(this ICollection<Tuple<ZootLabel, float>> rankedList, Func<ZootLabel, bool> func)
         {
             var split = rankedList.ToLookup(x => func(x.Item1));
+
+            if (!split[true].Any())
+                return 1.01;
+            if (!split[false].Any())
+                return -1.01;
+
             var hitsAverage = split[true].Average(x => x.Item2);
             var nonHitsAverage = split[false].Average(x => x.Item2);
             var avg = rankedList.Average(x => x.Item2);

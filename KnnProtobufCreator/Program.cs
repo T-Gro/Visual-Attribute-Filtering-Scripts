@@ -1,77 +1,84 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+using System.Configuration;
 using System.IO;
 using System.Linq;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
-using System.Text;
-using System.Threading.Tasks;
 using KnnResults.Domain;
 using ZootBataLabelsProcessing;
 
 namespace KnnProtobufCreator
 {
-  public class NamedHit
-  {
-    public float Distance { get; set; }
-    public string Img { get; set; }
-    public string Patch { get; set; }
-  }
-
-  class OverallDataAccessor
-  {
-    private static AllResults allClusters;
-    private static IDictionary<int, string> allImages;
-    private static IDictionary<int, string> allPatches;
-    private static Dictionary<Tuple<int, int>, ResultsRow> distanceLookup;
-
-    static OverallDataAccessor()
+    class Program
     {
-      allClusters = AllResults.Load(@"G:\siret\zoot\protobuf\local-conv5-cleaned-shrinked-patchClusters.bin");
-      allImages = allClusters.ImageEncoding.Reverse();
-      allPatches = allClusters.PatchEncoding.Reverse();
-      distanceLookup = allClusters.Rows.ToDictionary(x => Tuple.Create(x.Query.ImageId, x.Query.PatchId));
+        static void Main(string[] args)
+        {
+            CsvToProtobuf.CreateProtobufFile();
+            return;
+
+           
+            
+
+            //SparkMasketBasketParsing();
+            var zootLabels = ZootLabelProcessingTests.AllRecords;
+            var zootLabelsByName = zootLabels.CreateIndex(x => new[] { x.id }).Unique();
+
+            var filteredClusters = AllResults.Load(ConfigurationManager.AppSettings["FilteredPatchesBin"]);
+          
+
+            var fromIdToName = filteredClusters.ImageEncoding.ToDictionary(x => x.Value, x => Path.GetFileNameWithoutExtension(x.Key).ToLower());
+            var patchIdToname = filteredClusters.PatchEncoding.Reverse();
+            var imageIdToFullName = filteredClusters.ImageEncoding.Reverse();
+
+            foreach (var cluster in filteredClusters.Rows)
+            {
+                var involved = cluster.Hits.Select(x => x.Hit).ToList();
+                involved.Add(cluster.Query);
+
+                var withDistancesAndLabels =
+                  (from i in involved.Distinct()
+                   let name = fromIdToName[i.ImageId]
+                   let Zoot = zootLabelsByName[name]
+                   let Distances = OverallDataAccessor.FindHitsInBigFile(imageIdToFullName[i.ImageId], patchIdToname[i.PatchId])
+                   select new { Patch = i, Zoot, Distances })
+                  .ToList();
+
+                var commonLabels = withDistancesAndLabels
+                  .SelectMany(x => x.Zoot.AllTextAttributes())
+                  .GroupBy(x => x)
+                  .OrderByDescending(g => g.Count())
+                  .Where(g => g.Count() > 1 && g.Key != "zoot")
+                  .Take(20);
+
+                var allFoundMatches = withDistancesAndLabels
+                  .SelectMany(x => x.Distances)
+                  .GroupBy(x => x.Img)
+                  .Select(g => new { g.Key, MinDist = g.Min(i => i.Distance), ZootLabel = zootLabelsByName[OverallDataAccessor.GetCleanName(g.Key)] })
+                  .OrderBy(x => x.MinDist)
+                  .Select(x => Tuple.Create(x.ZootLabel, x.MinDist))
+                  .ToList();
+
+                cluster.Labels =
+                  (from cl in commonLabels
+                   let corr = allFoundMatches.PointBiserialCorrelation(zl => zl.AllTextAttributes().Contains(cl.Key))
+                   orderby Math.Abs(corr) descending
+                   select new ClusterLabel { Correlation = corr, Label = cl.Key, Count = cl.Count() }).ToArray();
+
+                Console.WriteLine(string.Join(";", cluster.Labels.Take(3).Select(x => x.Label)));
+            }
+
+            filteredClusters.Rows = filteredClusters.Rows.OrderByDescending(x => x.Labels.Max(l => Math.Abs(l.Correlation))).ToList();
+            filteredClusters.Save(ConfigurationManager.AppSettings["FilteredPatchesBin"].Replace(".bin","-with-labels.bin"));
+
+
+            var withLabels = AllResults.Load(ConfigurationManager.AppSettings["FilteredPatchesBin"].Replace(".bin", "-with-labels.bin"));
+            using (var sw = new StreamWriter(ConfigurationManager.AppSettings["FilteredPatchesBin"]
+                .Replace(".bin", "-with-labels.html")))
+            {
+                withLabels.Render(sw);
+            }
+
+            //ProtobufToCsv(path, loaded);
+            //GraphComponentDecomposition(path);
+            //ClusterDecomposition.AgglomerativeClustering(loaded);
+        }
     }
-
-    public static IEnumerable<NamedHit> FindHitsInBigFile(string sampleImage, string samplePatch)
-    {
-      var imageId = allClusters.ImageEncoding[sampleImage];
-      var patchId = allClusters.PatchEncoding[samplePatch];
-      var distances = distanceLookup[Tuple.Create(imageId, patchId)];
-      var namedHits = distances.Hits.Select(x => new NamedHit{ Distance = x.Distance, Img = allImages[x.Hit.ImageId], Patch = allPatches[x.Hit.PatchId] });
-      return namedHits;
-    }
-  }
-
-  class Program
-  {
-    static void Main(string[] args)
-    {
-
-      //SparkMasketBasketParsing();
-
- 
-      var filteredClusters = AllResults.Load(@"G:\siret\zoot\protobuf\local-conv5-cleaned-shrinked-patchClusters.bin");
-  
-
-      var hits = OverallDataAccessor.FindHitsInBigFile("dada","6x8");
-
-      Console.WriteLine(hits.Count());
-
-      var zootLabels = ZootBataLabelsProcessing.ZootLabelProcessingTests.AllRecords;
-      var byName = zootLabels.CreateIndex(x => new[]{x.id }).Unique();
-      var fromIdToName = filteredClusters.ImageEncoding.ToDictionary(x => x.Value, x => Path.GetFileNameWithoutExtension(x.Key).ToLower());
-
-      foreach (var r in filteredClusters.Rows.Take(5))
-      {
-        var name = fromIdToName[r.Query.ImageId];
-        var label = byName[name];
-        Console.WriteLine(String.Join(";", label.AllTextAttributes()));
-      }
-
-      //ProtobufToCsv(path, loaded);
-      //GraphComponentDecomposition(path);
-      //ClusterDecomposition.AgglomerativeClustering(loaded);
-    }
-  }
 }
