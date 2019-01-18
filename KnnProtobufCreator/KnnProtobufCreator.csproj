@@ -66,8 +66,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ClusterDecomposition.cs" />
+    <Compile Include="CsvToProtobuf.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ProtobufFiltering.cs" />
+    <Compile Include="SparkToHtml.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
