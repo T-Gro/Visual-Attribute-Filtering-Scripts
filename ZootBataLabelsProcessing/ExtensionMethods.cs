@@ -11,6 +11,11 @@ namespace ZootBataLabelsProcessing
             return original.ToDictionary(x => x.Key, x => x.Single());
         }
 
+      public static IDictionary<K, V> Reverse<K, V>(this IDictionary<V, K> original)
+      {
+        return original.ToDictionary(x => x.Value, x => x.Key);
+      }
+
         public static ILookup<K, V> WithoutSingles<K, V>(this ILookup<K, V> original)
         {
             return
