@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json;
 
 namespace ZootBataLabelsProcessing
 {
@@ -43,6 +44,16 @@ namespace ZootBataLabelsProcessing
             var result = ((hitsAverage - nonHitsAverage) / stddev) * Math.Sqrt(balanceFactor);
 
             return result;
+        }
+
+        public static string Dump(this object o)
+        {
+            return JsonConvert.SerializeObject(o, Formatting.Indented);
+        }
+
+        public static string Tie<T>(this IEnumerable<T> @this, string delimiter = null)
+        {
+            return String.Join(delimiter ?? Environment.NewLine, @this);
         }
 
         public static ILookup<string, T> CreateIndex<T>(this IEnumerable<T> records, Func<T, IEnumerable<string>> extraction)

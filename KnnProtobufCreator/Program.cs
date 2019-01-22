@@ -11,11 +11,11 @@ namespace KnnProtobufCreator
     {
         static void Main(string[] args)
         {
-            CsvToProtobuf.CreateProtobufFile();
-            return;
-
-           
-            
+            if (args.Length > 0 && args[0] == "csv-to-bin")
+            {
+                CsvToProtobuf.CreateProtobufFile();
+                return;
+            }
 
             //SparkMasketBasketParsing();
             var zootLabels = ZootLabelProcessingTests.AllRecords;
@@ -28,7 +28,7 @@ namespace KnnProtobufCreator
             var patchIdToname = filteredClusters.PatchEncoding.Reverse();
             var imageIdToFullName = filteredClusters.ImageEncoding.Reverse();
 
-            foreach (var cluster in filteredClusters.Rows)
+            foreach (var cluster in filteredClusters.Rows.AsParallel())
             {
                 var involved = cluster.Hits.Select(x => x.Hit).ToList();
                 involved.Add(cluster.Query);
@@ -61,8 +61,6 @@ namespace KnnProtobufCreator
                    let corr = allFoundMatches.PointBiserialCorrelation(zl => zl.AllTextAttributes().Contains(cl.Key))
                    orderby Math.Abs(corr) descending
                    select new ClusterLabel { Correlation = corr, Label = cl.Key, Count = cl.Count() }).ToArray();
-
-                Console.WriteLine(string.Join(";", cluster.Labels.Take(3).Select(x => x.Label)));
             }
 
             filteredClusters.Rows = filteredClusters.Rows.OrderByDescending(x => x.Labels.Max(l => Math.Abs(l.Correlation))).ToList();
