@@ -23,6 +23,7 @@ namespace ZootBataLabelsProcessing
                 AllRecords = csv.GetRecords<ZootLabel>().GroupBy(x => x.id).Select(g => g.First()).ToList();
                 AllRecords.ForEach(l => l.tags = l.tags.Trim());
             }
+
         }
 
         [Test]
