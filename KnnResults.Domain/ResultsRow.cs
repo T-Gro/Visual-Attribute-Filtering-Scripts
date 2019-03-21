@@ -59,23 +59,45 @@ namespace KnnResults.Domain
             return involvedImages;
         }
 
+        public IEnumerable<Patch> GetInvolvedPatches()
+        {
+            yield return Query;
+            foreach (var h in Hits)
+            {
+                yield return h.Hit;
+            }
+        }
+        
+
         public bool IsRubbish()
         {
-            var firstAreVerySmall = Hits.Take(10).All(h => h.Distance < 0.3);
-            var maxIsSmall = Hits.Max(x => x.Distance) < 0.95;
-            var averageIsSmall = Hits.Average(x => x.Distance) < 0.5;
-
-            return firstAreVerySmall || maxIsSmall || averageIsSmall;
+            return HasNearDuplicates() || HasTooManyCloseMatches() || IsTooEquidistant();
 
         }
 
-
-        public void Shrink()
+        public bool IsTooEquidistant(double maxTreshold = 0.5)
         {
+            return Hits.Average(x => x.Distance) < maxTreshold;
+        }
+
+        public bool HasTooManyCloseMatches(double maxTreshold = 0.95)
+        {
+            return Hits.Max(x => x.Distance) < maxTreshold;
+        }
+
+        public bool HasNearDuplicates(double maxTreshold = 0.3)
+        {
+            return Hits.Take(10).All(h => h.Distance < maxTreshold);
+        }
+
+
+        public void FilterNeigbhoursUsingDistanceDerivative(double deprecationTreshold = 0.93)
+        {
+            involvedImages = null;
             Hits = Hits.Where(h => h.Hit.ImageId != this.Query.ImageId).ToArray();
             for (int i = 1; i < Hits.Length; i++)
             {
-                if (Hits[i].Distance * 0.93 > Hits[i - 1].Distance)
+                if (Hits[i].Distance * deprecationTreshold > Hits[i - 1].Distance)
                 {
                     this.Hits = this.Hits.Take(i).ToArray();
                     return;

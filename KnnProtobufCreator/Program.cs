@@ -1,21 +1,74 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
 using System.Linq;
+using System.Text;
 using KnnResults.Domain;
 using ZootBataLabelsProcessing;
 
 namespace KnnProtobufCreator
 {
-    class Program
+    public class Program
     {
-        static void Main(string[] args)
+        class CompositionWriter : TextWriter
         {
+            private IEnumerable<TextWriter> originals;
+            public CompositionWriter(IEnumerable<TextWriter> originals)
+            {
+                this.originals = originals;
+                Encoding = originals.First().Encoding;
+            }
+
+            public override void WriteLine(string value)
+            {
+                foreach (var orig in originals)
+                {
+                    orig.WriteLine(value);
+                }
+            }
+
+            public override Encoding Encoding { get; }
+        }
+
+        public static void Main(string[] args)
+        {
+            Console.WriteLine("Provide original .bin filenames separated by ; to analyze");
+            foreach (var f in Console.ReadLine().Split(';'))
+            {
+                CalculateStats(f);
+            }
+            Console.ReadLine();
+            return;
+
+
             if (args.Length > 0 && args[0] == "csv-to-bin")
             {
                 CsvToProtobuf.CreateProtobufFile();
                 return;
             }
+
+            if (args.Length > 0 && args[0] == "bin-all-smaller")
+            {
+                var wl = AllResults.Load(ConfigurationManager.AppSettings["FilteredPatchesBin"]);
+                var wlie = wl.ImageEncoding.Reverse();
+                var wlpe = wl.PatchEncoding.Reverse();
+                var globalSet = OverallDataAccessor.allClusters;
+                var interestingImagePatches = wl
+                    .Rows.SelectMany(r => r.Hits.Select(h => h.Hit).Concat(new[] {r.Query}))
+                    .Distinct()
+                    .Select(p => new Patch{ImageId = globalSet.ImageEncoding[wlie[p.ImageId]], PatchId = globalSet.PatchEncoding[wlpe[p.PatchId]]})
+                    .ToLookup(x => x);
+
+                var removed = globalSet.Rows.RemoveAll(rr => !interestingImagePatches.Contains(rr.Query));
+                globalSet.Save(ConfigurationManager.AppSettings["OverAllKnnGraphBin"].Replace(".bin","-essential-knn.bin"));
+
+                Console.WriteLine("After filtering {0} rows remaining, {1} was removed",globalSet.Rows.Count, removed);
+
+                return;
+            }
+
+            return;
 
             //SparkMasketBasketParsing();
             var zootLabels = ZootLabelProcessingTests.AllRecords;
@@ -77,6 +130,63 @@ namespace KnnProtobufCreator
             //ProtobufToCsv(path, loaded);
             //GraphComponentDecomposition(path);
             //ClusterDecomposition.AgglomerativeClustering(loaded);
+        }
+
+        private static void CalculateStats(string filename)
+        {
+            var loadedFile = AllResults.Load(filename);
+            using (var file = new StreamWriter("filtering-statistics.csv", append: true))
+            using (var sw = new CompositionWriter(new[] {file, Console.Out}))
+            {
+                void PrintStats(string stepName)
+                {
+                    loadedFile.PrintStats(filename, stepName, sw);
+                }
+
+                PrintStats("Default-all");
+
+                loadedFile.Rows.RemoveAll(r => r.HasNearDuplicates());
+                GC.Collect();
+                PrintStats("Near-duplicate-candidates-removed");
+
+                loadedFile.Rows.RemoveAll(r => r.HasTooManyCloseMatches());
+                PrintStats("Too-large-candidates-removed");
+
+                loadedFile.Rows.RemoveAll(r => r.IsTooEquidistant());
+                PrintStats("Equidistant-candidates-removed");
+
+                var smallerFileName = filename.Replace(".bin","-tresholdBasedCleaned.bin");
+                loadedFile.Save(smallerFileName);
+
+                foreach (var derivativeTreshold in new[]{3,5,7,9,11})
+                {
+                    var ratio = (100 - derivativeTreshold) / 100.0;
+                    loadedFile = AllResults.Load(smallerFileName);
+                    loadedFile.Rows.ForEach(r => r.FilterNeigbhoursUsingDistanceDerivative(ratio));
+                    loadedFile.PrintStats(filename, "Candidates-shrinked-using-distance-derivative-" + ratio, sw);
+                    loadedFile.RefreshReferenceMap();
+                    for (int i = 0; i < 31; i++)
+                    {
+                        loadedFile.RefBasedShrink();
+                        loadedFile.RefreshReferenceMap();
+                    }
+                    loadedFile.PrintStats(filename, "Symmetrical-filter-" + ratio, sw);
+                    foreach (var maxImagesTreshold in new[]{500,1000,2000,4000})
+                    {
+                        foreach (var minImagesTreshold in new[]{2,4,6})
+                        {
+                            var clustered = ClusterDecomposition.GroupIntoClusters(loadedFile, maxImagesTreshold, minImagesTreshold);
+                            clustered.PrintStats(filename, $"After-clustering-derivative_{derivativeTreshold}-maxPerCluster_{maxImagesTreshold}-minInCluster_{minImagesTreshold}", sw);
+                        }
+                    }
+
+                }
+
+                
+                
+            }
+
+            Console.WriteLine("Done");
         }
     }
 }

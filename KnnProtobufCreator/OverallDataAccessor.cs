@@ -10,7 +10,7 @@ namespace KnnProtobufCreator
 {
     public class OverallDataAccessor
     {
-        private static AllResults allClusters;
+        public static AllResults allClusters;
         private static IDictionary<int, string> allImages;
         private static IDictionary<int, string> allPatches;
         private static Dictionary<Tuple<int, int>, ResultsRow> distanceLookup;
