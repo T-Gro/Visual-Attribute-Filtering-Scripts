@@ -6,65 +6,97 @@ using ProtoBuf;
 
 namespace KnnResults.Domain
 {
-  public class MarketBasketRule
-  {
-    public int[] Input { get; set; }
-    public int[] Output { get; set; }
-  }
-
-
-  [ProtoContract]
-  public class AllResults
-  {
-    public static Dictionary<int, Dictionary<int, int>> ReferenceMap;
-
-    [ProtoMember(1)]
-    public List<ResultsRow> Rows { get; set; } 
-    [ProtoMember(2)]
-    public Dictionary<string,int> ImageEncoding { get; set; }
-    [ProtoMember(3)]
-    public Dictionary<string,int> PatchEncoding { get; set; }
-
-    public AllResults()
+    public class MarketBasketRule
     {
-      Rows = new List<ResultsRow>(capacity:1200000);
-      ImageEncoding = new Dictionary<string, int>(capacity:40000);
-      PatchEncoding = new Dictionary<string, int>(capacity:60);
+        public int[] Input { get; set; }
+        public int[] Output { get; set; }
     }
 
-    public void CrossReferenceFilter()
-    {
-      ReferenceMap =
-        Rows
-          .GroupBy(x => x.Query.ImageId)
-          .Select(g => new
-          {
-            g.Key,
-            Friends = g
-              .SelectMany(x => x.Hits)
-              .GroupBy(x => x.Hit.ImageId)
-              .Select(h => new {h.Key, Count = h.Count()})
-              .ToDictionary(x => x.Key, x => x.Count)
-          }).ToDictionary(x => x.Key, x => x.Friends);
-    }
 
-    public void RefBasedShrink()
+    [ProtoContract]
+    public class AllResults
     {
-      var removed = this.Rows.RemoveAll(r => r.IsRefBasedRubbish());
-      Console.WriteLine(removed + " rows removed alltogether");
-    }
+        public static Dictionary<int, Dictionary<int, int>> ReferenceMap;
 
-    public void Save(string filename)
-    {
-      using (var file = File.Create(filename))
-      {
-        Serializer.Serialize(file, this);
-      }
-    }
+        [ProtoMember(1)]
+        public List<ResultsRow> Rows { get; set; }
+        [ProtoMember(2)]
+        public Dictionary<string, int> ImageEncoding { get; set; }
+        [ProtoMember(3)]
+        public Dictionary<string, int> PatchEncoding { get; set; }
 
-    public void Render(TextWriter sw)
-    {
-      sw.WriteLine(@"
+        public AllResults()
+        {
+            Rows = new List<ResultsRow>(capacity: 1200000);
+            ImageEncoding = new Dictionary<string, int>(capacity: 40000);
+            PatchEncoding = new Dictionary<string, int>(capacity: 60);
+        }
+
+        public static string GetProtoString()
+        {
+            return Serializer.GetProto<AllResults>();
+        }
+
+        public void PrintStats(string prefix, string processingStep, TextWriter tw)
+        {
+            Console.WriteLine("Starting to calculate");
+            var candidates = Rows.Count;
+            if (candidates == 0)
+            {
+                tw.WriteLine($"{prefix};{processingStep};{candidates}");
+                return;
+            }
+
+            var prows = Rows;
+
+            var uniqueImagesCovered = processingStep == "Default-all" ? ImageEncoding.Count : prows.SelectMany(x => x.GetInvolvedImages()).Distinct().Count();
+            var uniqueImagePatchesCovered = processingStep == "Default-all" ? ImageEncoding.Count*PatchEncoding.Count :  prows.SelectMany(x => x.GetInvolvedPatches()).Distinct().Count();
+            var uniquePatchLocationsCovered = processingStep == "Default-all" ? PatchEncoding.Count : prows.SelectMany(x => x.GetInvolvedPatches().Select(p => p.PatchId)).Distinct().Count();
+            var avgImagesPerCandidate = prows.Average(r => r.GetInvolvedImages().Count);
+            var avgImagePatchesPerCandidate = prows.Average(r => r.GetInvolvedPatches().Distinct().Count());
+            var avgMatchesPerCandidatePerImage = prows.Average(r =>r.GetInvolvedPatches().GroupBy(x => x.ImageId).Average(g => g.Distinct().Count()));
+            var avgMinDistanceWithinCandidate = prows.Average(r => r.Hits.Select(x => x.Distance).Min());
+            var avgMaxDistanceWithinCandidate = prows.Average(r => r.Hits.Select(x => x.Distance).Max());
+            var avgAvgDistanceWithinCandidate = prows.Average(r => r.Hits.Select(x => x.Distance).Average());
+            var avgDistanceSpanWithinCandidate = prows.Average(r => r.Hits.Select(x => x.Distance).Max() - r.Hits.Select(x => x.Distance).Min());
+            lock (tw)
+            {
+                tw.WriteLine($"{prefix};{processingStep},{candidates};{uniqueImagesCovered};{uniqueImagePatchesCovered};{uniquePatchLocationsCovered};{avgImagesPerCandidate};{avgImagePatchesPerCandidate};{avgMatchesPerCandidatePerImage};{avgMinDistanceWithinCandidate};{avgMaxDistanceWithinCandidate};{avgAvgDistanceWithinCandidate};{avgDistanceSpanWithinCandidate}");
+            }
+        }
+
+        public void RefreshReferenceMap()
+        {
+            ReferenceMap =
+              Rows
+                .GroupBy(x => x.Query.ImageId)
+                .Select(g => new
+                {
+                    g.Key,
+                    Friends = g
+                    .SelectMany(x => x.Hits)
+                    .GroupBy(x => x.Hit.ImageId)
+                    .Select(h => new { h.Key, Count = h.Count() })
+                    .ToDictionary(x => x.Key, x => x.Count)
+                }).ToDictionary(x => x.Key, x => x.Friends);
+        }
+
+        public void RefBasedShrink()
+        {
+            var removed = this.Rows.RemoveAll(r => r.IsRefBasedRubbish());
+        }
+
+        public void Save(string filename)
+        {
+            using (var file = File.Create(filename))
+            {
+                Serializer.Serialize(file, this);
+            }
+        }
+
+        public void Render(TextWriter sw)
+        {
+            sw.WriteLine(@"
 <style>
 #container {
     position:relative;	
@@ -127,36 +159,36 @@ th{
 .crop7-top{	
     top:362px;
 }");
-//      td:first-child{
-//	border:5px solid lime;
-//}
+            //      td:first-child{
+            //	border:5px solid lime;
+            //}
 
 
-      sw.WriteLine("</style>");
-      sw.WriteLine("<table>");
-      var names = ImageEncoding.ToDictionary(x => x.Value, x => x.Key);
-      var patches = PatchEncoding.ToDictionary(x => x.Value, x => x.Key);
-      foreach (var row in Rows.Take(3000))
-      {
-        sw.WriteLine(row.ToString(names, patches));
-      }
-      sw.WriteLine("</table>");
+            sw.WriteLine("</style>");
+            sw.WriteLine("<table>");
+            var names = ImageEncoding.ToDictionary(x => x.Value, x => x.Key);
+            var patches = PatchEncoding.ToDictionary(x => x.Value, x => x.Key);
+            foreach (var row in Rows.Take(3000))
+            {
+                sw.WriteLine(row.ToString(names, patches));
+            }
+            sw.WriteLine("</table>");
+        }
+
+        public static AllResults Load(string filename)
+        {
+            using (var file = File.OpenRead(filename))
+            {
+                return Serializer.Deserialize<AllResults>(file);
+            }
+        }
+
+        public void ToCsv(TextWriter tw)
+        {
+            foreach (var rr in Rows)
+            {
+                tw.WriteLine(String.Join(";", rr.GetInvolvedImages()));
+            }
+        }
     }
-
-    public static AllResults Load(string filename)
-    {
-      using (var file = File.OpenRead(filename))
-      {
-        return Serializer.Deserialize<AllResults>(file);
-      }
-    }
-
-    public void ToCsv(TextWriter tw)
-    {
-      foreach (var rr in Rows)
-      {
-        tw.WriteLine(String.Join(";", rr.GetInvolvedImages()));
-      }
-    }
-  }
 }

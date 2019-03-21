@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json;
 
 namespace ZootBataLabelsProcessing
 {
@@ -11,6 +12,11 @@ namespace ZootBataLabelsProcessing
             return original.ToDictionary(x => x.Key, x => x.Single());
         }
 
+      public static IDictionary<K, V> Reverse<K, V>(this IDictionary<V, K> original)
+      {
+        return original.ToDictionary(x => x.Value, x => x.Key);
+      }
+
         public static ILookup<K, V> WithoutSingles<K, V>(this ILookup<K, V> original)
         {
             return
@@ -20,9 +26,15 @@ namespace ZootBataLabelsProcessing
                  select new { lkp.Key, entry }).ToLookup(x => x.Key, x => x.entry);
         }
 
-        public static double PointBiserialCorrelation(this ICollection<Tuple<ZootLabel, double>> rankedList, Func<ZootLabel, bool> func)
+        public static double PointBiserialCorrelation(this ICollection<Tuple<ZootLabel, float>> rankedList, Func<ZootLabel, bool> func)
         {
             var split = rankedList.ToLookup(x => func(x.Item1));
+
+            if (!split[true].Any())
+                return 1.01;
+            if (!split[false].Any())
+                return -1.01;
+
             var hitsAverage = split[true].Average(x => x.Item2);
             var nonHitsAverage = split[false].Average(x => x.Item2);
             var avg = rankedList.Average(x => x.Item2);
@@ -32,6 +44,16 @@ namespace ZootBataLabelsProcessing
             var result = ((hitsAverage - nonHitsAverage) / stddev) * Math.Sqrt(balanceFactor);
 
             return result;
+        }
+
+        public static string Dump(this object o)
+        {
+            return JsonConvert.SerializeObject(o, Formatting.Indented);
+        }
+
+        public static string Tie<T>(this IEnumerable<T> @this, string delimiter = null)
+        {
+            return String.Join(delimiter ?? Environment.NewLine, @this);
         }
 
         public static ILookup<string, T> CreateIndex<T>(this IEnumerable<T> records, Func<T, IEnumerable<string>> extraction)

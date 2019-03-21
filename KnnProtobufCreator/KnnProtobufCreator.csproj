@@ -57,6 +57,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -68,23 +69,31 @@
   <ItemGroup>
     <Compile Include="ClusterDecomposition.cs" />
     <Compile Include="CsvToProtobuf.cs" />
+    <Compile Include="NamedHit.cs" />
+    <Compile Include="OverallDataAccessor.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ProtobufFiltering.cs" />
     <Compile Include="SparkToHtml.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="App.config" />
+    <None Include="App.config">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\Source\Repos\Aglomera\src\Aglomera\Aglomera.csproj">
-      <Project>{16A5BE54-20D8-4942-B598-69CED9304E91}</Project>
+    <ProjectReference Include="..\Aglomera\Aglomera.csproj">
+      <Project>{fb2fdf74-dd6c-477f-8b11-388c31bf8668}</Project>
       <Name>Aglomera</Name>
     </ProjectReference>
     <ProjectReference Include="..\KnnResults.Domain\KnnResults.Domain.csproj">
       <Project>{e0a78b5e-6ec9-41f2-850e-ab921b1ee144}</Project>
       <Name>KnnResults.Domain</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ZootBataLabelsProcessing\ZootBataLabelsProcessing.csproj">
+      <Project>{7669b8bb-2dac-4c72-8844-d8fab3379210}</Project>
+      <Name>ZootBataLabelsProcessing</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

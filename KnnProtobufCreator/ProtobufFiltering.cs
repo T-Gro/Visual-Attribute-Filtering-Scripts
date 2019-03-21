@@ -34,7 +34,7 @@ namespace KnnProtobufCreator
       for (int i = 0; i < 31; i++)
       {
         Console.WriteLine($"iteration {i} starting");
-        loadedFile.CrossReferenceFilter();
+        loadedFile.RefreshReferenceMap();
         loadedFile.RefBasedShrink();
       }
 
