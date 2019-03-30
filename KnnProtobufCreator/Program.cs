@@ -134,49 +134,59 @@ namespace KnnProtobufCreator
 
         private static void CalculateStats(string filename)
         {
-            var loadedFile = AllResults.Load(filename);
+            
             using (var file = new StreamWriter("filtering-statistics.csv", append: true))
             using (var sw = new CompositionWriter(new[] {file, Console.Out}))
             {
+                AllResults loadedFile;
                 void PrintStats(string stepName)
                 {
                     loadedFile.PrintStats(filename, stepName, sw);
                 }
 
-                PrintStats("Default-all");
+                var smallerFileName = filename.Replace(".bin", "-tresholdBasedCleaned.bin");
+                if (!File.Exists(smallerFileName))
+                {
+                    Console.WriteLine("Starting from scatch, no previous save point");
+                    loadedFile = AllResults.Load(filename);
+                    PrintStats("Default-all");
 
-                loadedFile.Rows.RemoveAll(r => r.HasNearDuplicates());
-                GC.Collect();
-                PrintStats("Near-duplicate-candidates-removed");
+                    loadedFile.Rows.RemoveAll(r => r.HasNearDuplicates());
+                    GC.Collect();
+                    PrintStats("Near-duplicate-candidates-removed");
 
-                loadedFile.Rows.RemoveAll(r => r.HasTooManyCloseMatches());
-                PrintStats("Too-large-candidates-removed");
+                    loadedFile.Rows.RemoveAll(r => r.HasTooManyCloseMatches());
+                    PrintStats("Too-large-candidates-removed");
 
-                loadedFile.Rows.RemoveAll(r => r.IsTooEquidistant());
-                PrintStats("Equidistant-candidates-removed");
+                    loadedFile.Rows.RemoveAll(r => r.IsTooEquidistant());
+                    PrintStats("Equidistant-candidates-removed");
+                   
+                    loadedFile.Save(smallerFileName);
+                }
+                
 
-                var smallerFileName = filename.Replace(".bin","-tresholdBasedCleaned.bin");
-                loadedFile.Save(smallerFileName);
 
-                foreach (var derivativeTreshold in new[]{2,4,6,8,10,12,14,16,18})
+                
+
+                foreach (var derivativeTreshold in new[]{1,2,4,8,16,32})
                 {
                     var ratio = (100 - derivativeTreshold) / 100.0;
                     loadedFile = AllResults.Load(smallerFileName);
                     loadedFile.Rows.ForEach(r => r.FilterNeigbhoursUsingDistanceDerivative(ratio));
-                    loadedFile.PrintStats(filename, "Candidates-shrinked-using-distance-derivative-" + ratio, sw);
+                    loadedFile.PrintStats(filename, "Candidates-shrinked-using-distance-derivative;" + ratio + ";999999;0", sw);
                     loadedFile.RefreshReferenceMap();
                     for (int i = 0; i < 31; i++)
                     {
                         loadedFile.RefBasedShrink();
                         loadedFile.RefreshReferenceMap();
                     }
-                    loadedFile.PrintStats(filename, "Symmetrical-filter-" + ratio, sw);
-                    foreach (var maxImagesTreshold in new[]{250,500,1000,2000,4000})
+                    loadedFile.PrintStats(filename, "Symmetrical-filter;" + ratio + ";999999;0", sw);
+                    foreach (var maxImagesTreshold in new[]{25,50,100})
                     {
-                        foreach (var minImagesTreshold in new[]{2,4,6,8,10})
+                        foreach (var minImagesTreshold in new[]{2,4,6,8})
                         {
                             var clustered = ClusterDecomposition.GroupIntoClusters(loadedFile, maxImagesTreshold, minImagesTreshold);
-                            clustered.PrintStats(filename, $"After-clustering-derivative_{derivativeTreshold}-maxPerCluster_{maxImagesTreshold}-minInCluster_{minImagesTreshold}", sw);
+                            clustered.PrintStats(filename, $"After-clustering;{derivativeTreshold};{maxImagesTreshold};{minImagesTreshold}", sw);
                         }
                     }
 

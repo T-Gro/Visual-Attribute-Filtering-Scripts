@@ -183,6 +183,7 @@ namespace KnnResults.Domain
         public bool IsRefBasedRubbish()
         {
             this.Hits = this.Hits.TakeWhile(hit => AllResults.ReferenceMap.ContainsKey(hit.Hit.ImageId) && AllResults.ReferenceMap[hit.Hit.ImageId].ContainsKey(this.Query.ImageId)).ToArray();
+            this.involvedImages = null;
             return this.Hits.Length == 0;
         }
 
