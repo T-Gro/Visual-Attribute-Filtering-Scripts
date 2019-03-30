@@ -158,7 +158,7 @@ namespace KnnProtobufCreator
                 var smallerFileName = filename.Replace(".bin","-tresholdBasedCleaned.bin");
                 loadedFile.Save(smallerFileName);
 
-                foreach (var derivativeTreshold in new[]{3,5,7,9,11})
+                foreach (var derivativeTreshold in new[]{2,4,6,8,10,12,14,16,18})
                 {
                     var ratio = (100 - derivativeTreshold) / 100.0;
                     loadedFile = AllResults.Load(smallerFileName);
@@ -171,9 +171,9 @@ namespace KnnProtobufCreator
                         loadedFile.RefreshReferenceMap();
                     }
                     loadedFile.PrintStats(filename, "Symmetrical-filter-" + ratio, sw);
-                    foreach (var maxImagesTreshold in new[]{500,1000,2000,4000})
+                    foreach (var maxImagesTreshold in new[]{250,500,1000,2000,4000})
                     {
-                        foreach (var minImagesTreshold in new[]{2,4,6})
+                        foreach (var minImagesTreshold in new[]{2,4,6,8,10})
                         {
                             var clustered = ClusterDecomposition.GroupIntoClusters(loadedFile, maxImagesTreshold, minImagesTreshold);
                             clustered.PrintStats(filename, $"After-clustering-derivative_{derivativeTreshold}-maxPerCluster_{maxImagesTreshold}-minInCluster_{minImagesTreshold}", sw);

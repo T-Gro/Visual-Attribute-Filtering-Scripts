@@ -63,10 +63,12 @@ namespace KnnProtobufCreator
                             x.Select(y => y.Key.ImageId).Distinct().Count() >= imagesPerCandidateMinTreshold);
             Console.WriteLine("Having " + stats.Count() + " nice clusters");
             var rareImgs = new HashSet<Patch>(stats.SelectMany(x => x.Select(y => y.Key)));
-            loaded.Rows.RemoveAll(row => !rareImgs.Contains(row.Query));
 
             var artificalResults = new AllResults { ImageEncoding = loaded.ImageEncoding, PatchEncoding = loaded.PatchEncoding };
-            var colorGroups = loaded.Rows.GroupBy(x => imgColors[x.Query]);
+            var colorGroups = loaded.Rows
+                .Where(r => rareImgs.Contains(r.Query))
+                .GroupBy(x => imgColors[x.Query]);
+
             foreach (var g in colorGroups)
             {
                 artificalResults.Rows.Add(new ResultsRow
