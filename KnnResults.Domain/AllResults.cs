@@ -81,9 +81,10 @@ namespace KnnResults.Domain
                 }).ToDictionary(x => x.Key, x => x.Friends);
         }
 
-        public void RefBasedShrink()
+        public int RefBasedShrink()
         {
             var removed = this.Rows.RemoveAll(r => r.IsRefBasedRubbish());
+            return removed;
         }
 
         public void Save(string filename)

@@ -135,7 +135,7 @@ namespace KnnProtobufCreator
         private static void CalculateStats(string filename)
         {
             
-            using (var file = new StreamWriter("filtering-statistics.csv", append: true))
+            using (var file = new StreamWriter("filtering-statistics-selection.csv", append: true))
             using (var sw = new CompositionWriter(new[] {file, Console.Out}))
             {
                 AllResults loadedFile;
@@ -163,40 +163,82 @@ namespace KnnProtobufCreator
                    
                     loadedFile.Save(smallerFileName);
                 }
-                
 
 
-                
 
-                foreach (var derivativeTreshold in new[]{1,2,4,8,16,32})
+                var combinations = new[]
                 {
-                    var ratio = (100 - derivativeTreshold) / 100.0;
+                    new {File = "conv3-local.bin", Ratio = 0.91, Max = 400, Min = 10},
+                    new {File = "conv3-local.bin", Ratio = 0.88, Max = 400, Min = 8},
+                    new {File = "conv3-local.bin", Ratio = 0.96, Max = 50, Min = 10},
+
+                    new {File = "conv4-local.bin", Ratio = 0.91, Max = 800, Min = 12},
+                    new {File = "conv4-local.bin", Ratio = 0.89, Max = 800, Min = 8},
+                    new {File = "conv4-local.bin", Ratio = 0.94, Max = 400, Min = 12},
+
+                    new {File = "conv5-local.bin", Ratio = 0.8, Max = 800, Min = 8},
+                    new {File = "conv5-local.bin", Ratio = 0.76, Max = 50, Min = 6},
+                    new {File = "conv5-local.bin", Ratio = 0.92, Max = 200, Min = 8},
+                }.ToLookup(x => x.File);
+                // new[]{5,6,7,9,10,11,13,14,15}
+
+                var bigFile = AllResults.Load(filename);
+                Console.WriteLine(filename + " was big-loaded.");
+                foreach (var c in combinations[filename])
+                {
+                    var ratio = c.Ratio;
                     loadedFile = AllResults.Load(smallerFileName);
                     loadedFile.Rows.ForEach(r => r.FilterNeigbhoursUsingDistanceDerivative(ratio));
-                    loadedFile.PrintStats(filename, "Candidates-shrinked-using-distance-derivative;" + ratio + ";999999;0", sw);
                     loadedFile.RefreshReferenceMap();
-                    for (int i = 0; i < 31; i++)
+                    loadedFile.RefBasedShrink();
+                    loadedFile.RefreshReferenceMap();
+
+                    for (int i = 1; i < 31; i++)
                     {
-                        loadedFile.RefBasedShrink();
+                        var removed = loadedFile.RefBasedShrink();
                         loadedFile.RefreshReferenceMap();
-                    }
-                    loadedFile.PrintStats(filename, "Symmetrical-filter;" + ratio + ";999999;0", sw);
-                    foreach (var maxImagesTreshold in new[]{25,50,100})
-                    {
-                        foreach (var minImagesTreshold in new[]{2,4,6,8})
+                        if (removed == 0)
                         {
-                            var clustered = ClusterDecomposition.GroupIntoClusters(loadedFile, maxImagesTreshold, minImagesTreshold);
-                            clustered.PrintStats(filename, $"After-clustering;{derivativeTreshold};{maxImagesTreshold};{minImagesTreshold}", sw);
+                            Console.WriteLine($"Nothing removed at iteration {i}, stopping ref-based shrink for {ratio}");
+                            break;
                         }
                     }
 
-                }
+                    // foreach (var maxImagesTreshold in new[]{25,50,100,200,400,800,1600})
+                    //  foreach (var minImagesTreshold in new[]{2,4,6,8,10,12})
+                    var clustered = ClusterDecomposition.GroupIntoClusters(loadedFile, c.Max, c.Min);
+                    clustered.PrintStats(filename, $"After-clustering;{ratio};{c.Max};{c.Min}", sw);
+                    var clusterName = filename.Replace(".bin", $"deriv_{ratio}-max_{c.Max}-min_{c.Min}.bin");
+                    clustered.Save(clusterName);
+                    Console.WriteLine(clusterName + " was saved.");
+                    using (var htmlw = new StreamWriter(clusterName.Replace("bin",".html")))
+                    {
+                        clustered.Render(htmlw);
+                    }
+                    Console.WriteLine(clusterName + " was rendered.");
 
-                
-                
+                    var wlie = clustered.ImageEncoding.Reverse();
+                    var wlpe = clustered.PatchEncoding.Reverse();
+                    var interestingImagePatches = clustered
+                        .Rows.SelectMany(r => r.Hits.Select(h => h.Hit).Concat(new[] { r.Query }))
+                        .Distinct()
+                        .Select(p => new Patch { ImageId = bigFile.ImageEncoding[wlie[p.ImageId]], PatchId = bigFile.PatchEncoding[wlpe[p.PatchId]] })
+                        .ToLookup(x => x);
+
+                    var newBigFile = new AllResults
+                    {
+                        ImageEncoding = bigFile.ImageEncoding,
+                        PatchEncoding =  bigFile.PatchEncoding,
+                        Rows = bigFile.Rows.Where(rr => interestingImagePatches.Contains(rr.Query)).ToList()
+                    };
+                    Console.WriteLine(clusterName + " 's essential knn was shrinked.");
+                    newBigFile.Save(clusterName.Replace(".bin", "-essential-knn.bin"));
+
+                    Console.WriteLine("After filtering of {2} = {0} rows remaining, {1} was removed", newBigFile.Rows.Count, bigFile.Rows.Count - newBigFile.Rows.Count, clusterName);
+                }
             }
 
-            Console.WriteLine("Done");
+            Console.WriteLine(filename + " Done");
         }
     }
 }
