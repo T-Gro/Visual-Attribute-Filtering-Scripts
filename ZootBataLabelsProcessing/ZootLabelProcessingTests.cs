@@ -1,6 +1,7 @@
 ﻿using CsvHelper;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using NUnit;
@@ -24,6 +25,22 @@ namespace ZootBataLabelsProcessing
                 AllRecords.ForEach(l => l.tags = l.tags.Trim());
             }
 
+        }
+
+        [Test]
+        public void Pairwise()
+        {
+            var list = Enumerable.Range(1, 6);
+            var pairsOfLabels =
+                from first in list
+                from second in list.TakeWhile(x => x != first)
+                from third in list.TakeWhile(x => x!= second)
+                select new {first, second, third};
+
+            foreach (var p in pairsOfLabels)
+            {
+                Console.WriteLine($"F={p.first}, S = {p.second}, T = {p.third}");
+            }
         }
 
         [Test]
@@ -58,7 +75,6 @@ namespace ZootBataLabelsProcessing
                 .Select(g => new { Term = g.Key, Presense = g.Count(), Coverage = allIndex[g.Key].Count(), Total = nameIndex.Count })
                 .ToList();
 
-            Console.ReadLine();
         }
     }
 }

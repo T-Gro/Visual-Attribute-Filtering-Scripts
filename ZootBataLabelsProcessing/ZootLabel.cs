@@ -18,13 +18,21 @@ namespace ZootBataLabelsProcessing
         public string[] AllTags => tags.Split(Delimiter);
         public string[] AllCategories => categories.Split(Delimiter);
 
-        public IEnumerable<string> AllTextAttributes() => AllTextAttributesRaw().Distinct().Select(x => x.Trim().ToLower());
+        public IEnumerable<string> AllTextAttributes() => AllTextAttributesRaw().Select(x => x.Trim().ToLower()).Distinct();
                
         private IEnumerable<string> AllTextAttributesRaw()
         {
             yield return title;
             yield return brand;
             foreach (var c in AllCategories) yield return c;
+            foreach (var t in AllTags) yield return t;
+        }
+
+        public IEnumerable<string> MeaningfulTextAttributes() => MeaningfulTextAttributesRaw().Select(x => x.Trim().ToLower()).Distinct();
+
+        private IEnumerable<string> MeaningfulTextAttributesRaw()
+        {
+            yield return AllCategories.Last();
             foreach (var t in AllTags) yield return t;
         }
     }

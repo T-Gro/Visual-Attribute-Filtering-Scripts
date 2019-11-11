@@ -4,6 +4,7 @@ using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using KnnResults.Domain;
 using ZootBataLabelsProcessing;
 
@@ -33,14 +34,11 @@ namespace KnnProtobufCreator
 
         public static void Main(string[] args)
         {
-            Console.WriteLine("Provide original .bin filenames separated by ; to analyze");
-            foreach (var f in Console.ReadLine().Split(';'))
+            if (args.Length > 0 && args[0] == "run-offline-stats")
             {
-                CalculateStats(f);
+                StatsCalculationRoutine();
+                return;
             }
-            Console.ReadLine();
-            return;
-
 
             if (args.Length > 0 && args[0] == "csv-to-bin")
             {
@@ -50,27 +48,10 @@ namespace KnnProtobufCreator
 
             if (args.Length > 0 && args[0] == "bin-all-smaller")
             {
-                var wl = AllResults.Load(ConfigurationManager.AppSettings["FilteredPatchesBin"]);
-                var wlie = wl.ImageEncoding.Reverse();
-                var wlpe = wl.PatchEncoding.Reverse();
-                var globalSet = OverallDataAccessor.allClusters;
-                var interestingImagePatches = wl
-                    .Rows.SelectMany(r => r.Hits.Select(h => h.Hit).Concat(new[] {r.Query}))
-                    .Distinct()
-                    .Select(p => new Patch{ImageId = globalSet.ImageEncoding[wlie[p.ImageId]], PatchId = globalSet.PatchEncoding[wlpe[p.PatchId]]})
-                    .ToLookup(x => x);
-
-                var removed = globalSet.Rows.RemoveAll(rr => !interestingImagePatches.Contains(rr.Query));
-                globalSet.Save(ConfigurationManager.AppSettings["OverAllKnnGraphBin"].Replace(".bin","-essential-knn.bin"));
-
-                Console.WriteLine("After filtering {0} rows remaining, {1} was removed",globalSet.Rows.Count, removed);
-
+                CreateSmallerBinsRoutine();
                 return;
             }
 
-            return;
-
-            //SparkMasketBasketParsing();
             var zootLabels = ZootLabelProcessingTests.AllRecords;
             var zootLabelsByName = zootLabels.CreateIndex(x => new[] { x.id }).Unique();
 
@@ -81,55 +62,105 @@ namespace KnnProtobufCreator
             var patchIdToname = filteredClusters.PatchEncoding.Reverse();
             var imageIdToFullName = filteredClusters.ImageEncoding.Reverse();
 
-            foreach (var cluster in filteredClusters.Rows.AsParallel())
+            //filteredClusters.Rows = filteredClusters.Rows.Take(10).ToList();
+
+            Parallel.ForEach(filteredClusters.Rows, cluster =>
             {
+                Console.Write('.');
                 var involved = cluster.Hits.Select(x => x.Hit).ToList();
                 involved.Add(cluster.Query);
 
                 var withDistancesAndLabels =
-                  (from i in involved.Distinct()
-                   let name = fromIdToName[i.ImageId]
-                   let Zoot = zootLabelsByName[name]
-                   let Distances = OverallDataAccessor.FindHitsInBigFile(imageIdToFullName[i.ImageId], patchIdToname[i.PatchId])
-                   select new { Patch = i, Zoot, Distances })
-                  .ToList();
+                    (from i in involved.Distinct()
+                        let name = fromIdToName[i.ImageId]
+                        let Zoot = zootLabelsByName[name]
+                        let Distances = OverallDataAccessor.FindHitsInBigFile(imageIdToFullName[i.ImageId],
+                            patchIdToname[i.PatchId])
+                        select new {Patch = i, Zoot, Distances})
+                    .ToList();
 
                 var commonLabels = withDistancesAndLabels
-                  .SelectMany(x => x.Zoot.AllTextAttributes())
-                  .GroupBy(x => x)
-                  .OrderByDescending(g => g.Count())
-                  .Where(g => g.Count() > 1 && g.Key != "zoot")
-                  .Take(20);
+                    .SelectMany(x => x.Zoot.MeaningfulTextAttributes().Select(a => new {x.Patch, Attr = a}))
+                    .GroupBy(x => x.Attr, x => x.Patch)
+                    .OrderByDescending(g => g.Count())
+                    .Where(g => g.Count() > 1 && g.Key != "zoot")
+                    .Take(20)
+                    .ToList();
+
+                var pairsOfLabels =
+                    from first in commonLabels
+                    from second in commonLabels.TakeWhile(x => x.Key != first.Key)
+                    from third in commonLabels.TakeWhile(x => x.Key != second.Key)
+                    let intersect = first.Intersect(second).Intersect(third).Count()
+                    where intersect > 10
+                    select new {first, second,third, Name = first.Key + "^" + second.Key + "^" + third.Key, Size = intersect};
+
 
                 var allFoundMatches = withDistancesAndLabels
-                  .SelectMany(x => x.Distances)
-                  .GroupBy(x => x.Img)
-                  .Select(g => new { g.Key, MinDist = g.Min(i => i.Distance), ZootLabel = zootLabelsByName[OverallDataAccessor.GetCleanName(g.Key)] })
-                  .OrderBy(x => x.MinDist)
-                  .Select(x => Tuple.Create(x.ZootLabel, x.MinDist))
-                  .ToList();
+                    .SelectMany(x => x.Distances)
+                    .GroupBy(x => x.Img)
+                    .Select(g => new
+                    {
+                        g.Key, MinDist = g.Min(i => i.Distance),
+                        ZootLabel = zootLabelsByName[OverallDataAccessor.GetCleanName(g.Key)]
+                    })
+                    .OrderBy(x => x.MinDist)
+                    .Select(x => Tuple.Create(x.ZootLabel, x.MinDist))
+                    .ToList();
 
                 cluster.Labels =
-                  (from cl in commonLabels
-                   let corr = allFoundMatches.PointBiserialCorrelation(zl => zl.AllTextAttributes().Contains(cl.Key))
-                   orderby Math.Abs(corr) descending
-                   select new ClusterLabel { Correlation = corr, Label = cl.Key, Count = cl.Count() }).ToArray();
-            }
+                    (from cl in pairsOfLabels
+                        let labels = new[] {cl.first.Key, cl.second.Key, cl.third.Key}
+                        let corr = allFoundMatches.PointBiserialCorrelation(zl =>
+                            zl.MeaningfulTextAttributes().Intersect(labels).Count() == labels.Length)
+                        orderby Math.Abs(corr) descending
+                        select new ClusterLabel {Correlation = corr, Label = cl.Name, Count = cl.Size}).ToArray();
+                Console.Write('!');
+            });
 
-            filteredClusters.Rows = filteredClusters.Rows.OrderByDescending(x => x.Labels.Max(l => Math.Abs(l.Correlation))).ToList();
-            filteredClusters.Save(ConfigurationManager.AppSettings["FilteredPatchesBin"].Replace(".bin","-with-labels.bin"));
+            filteredClusters.Rows = filteredClusters.Rows.Where(x => x.Labels.Any()).OrderByDescending(x => x.Labels.Length == 0 ? 0 : x.Labels.Max(l => Math.Abs(l.Correlation))).ToList();
+            filteredClusters.Save(ConfigurationManager.AppSettings["FilteredPatchesBin"].Replace(".bin","-with-labels-triples.bin"));
 
 
-            var withLabels = AllResults.Load(ConfigurationManager.AppSettings["FilteredPatchesBin"].Replace(".bin", "-with-labels.bin"));
+            var withLabels = AllResults.Load(ConfigurationManager.AppSettings["FilteredPatchesBin"].Replace(".bin", "-with-labels-triples.bin"));
             using (var sw = new StreamWriter(ConfigurationManager.AppSettings["FilteredPatchesBin"]
-                .Replace(".bin", "-with-labels.html")))
+                .Replace(".bin", "-with-labels-triples.html")))
             {
                 withLabels.Render(sw);
             }
 
-            //ProtobufToCsv(path, loaded);
-            //GraphComponentDecomposition(path);
-            //ClusterDecomposition.AgglomerativeClustering(loaded);
+
+        }
+
+        private static void CreateSmallerBinsRoutine()
+        {
+            var wl = AllResults.Load(ConfigurationManager.AppSettings["FilteredPatchesBin"]);
+            var wlie = wl.ImageEncoding.Reverse();
+            var wlpe = wl.PatchEncoding.Reverse();
+            var globalSet = OverallDataAccessor.allClusters;
+            var interestingImagePatches = wl
+                .Rows.SelectMany(r => r.Hits.Select(h => h.Hit).Concat(new[] {r.Query}))
+                .Distinct()
+                .Select(p => new Patch
+                    {ImageId = globalSet.ImageEncoding[wlie[p.ImageId]], PatchId = globalSet.PatchEncoding[wlpe[p.PatchId]]})
+                .ToLookup(x => x);
+
+            var removed = globalSet.Rows.RemoveAll(rr => !interestingImagePatches.Contains(rr.Query));
+            globalSet.Save(ConfigurationManager.AppSettings["OverAllKnnGraphBin"].Replace(".bin", "-essential-knn.bin"));
+
+            Console.WriteLine("After filtering {0} rows remaining, {1} was removed", globalSet.Rows.Count, removed);
+        }
+
+        private static void StatsCalculationRoutine()
+        {
+            Console.WriteLine("Provide original .bin filenames separated by ; to analyze");
+            foreach (var f in Console.ReadLine().Split(';'))
+            {
+                CalculateStats(f);
+            }
+
+            Console.ReadLine();
+            return;
         }
 
         private static void CalculateStats(string filename)
