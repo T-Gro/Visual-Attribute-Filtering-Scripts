@@ -27,6 +27,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Aglomera", "Aglomera\Aglome
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LargeFileFilter", "LargeFileFilter\LargeFileFilter.csproj", "{DEBC53CE-AA62-436F-895F-431F3EF3C937}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "L2VectorSpaceJoiner", "L2VectorSpaceJoiner\L2VectorSpaceJoiner.csproj", "{298816F3-B3CC-4AF4-B400-26F6059DAF9A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -181,6 +183,18 @@ Global
 		{DEBC53CE-AA62-436F-895F-431F3EF3C937}.Release|x64.Build.0 = Release|Any CPU
 		{DEBC53CE-AA62-436F-895F-431F3EF3C937}.Release|x86.ActiveCfg = Release|Any CPU
 		{DEBC53CE-AA62-436F-895F-431F3EF3C937}.Release|x86.Build.0 = Release|Any CPU
+		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Debug|x64.Build.0 = Debug|Any CPU
+		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Debug|x86.Build.0 = Debug|Any CPU
+		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Release|x64.ActiveCfg = Release|Any CPU
+		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Release|x64.Build.0 = Release|Any CPU
+		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Release|x86.ActiveCfg = Release|Any CPU
+		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
