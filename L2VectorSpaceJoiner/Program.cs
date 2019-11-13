@@ -23,12 +23,20 @@ namespace L2VectorSpaceJoiner
             var allPairs =
                  (from n in newFile.AsParallel()
                   from o in oldFile
-                  let d = L2Distance(n.data, o.data)                 
-                  select new { N = n.name, O = o.name, Distance =  d}).ToLookup(x => x.N);
+                  let d = L2Distance(n.data, o.data)
+                  select new { N = n.name, O = o.name, Distance = d }).ToList();
+                  
+            var byNew = allPairs.ToLookup(x => x.N);
+
+            var maxPerOld = allPairs
+                .GroupBy(x => x.O, x => x.Distance)
+                .Select(g => new { Old = g.Key, K512 = g.OrderBy(d => d).ElementAt(512) })
+                .ToDictionary(x => x.Old);
+
 
             var sg = new SimilarityGraph
             {
-                ResultsForNewImages = allPairs.ToDictionary(x => x.Key, x => x.Select(y => new DistancesToOldImages { OldPatchName = y.O, Distance = y.Distance }).ToArray())
+                ResultsForNewImages = byNew.ToDictionary(x => x.Key, x => x.Select(y => new DistancesToOldImages { OldPatchName = y.O, Distance = Math.Min(y.Distance, maxPerOld[y.O].K512) }).ToArray())
             };
 
             using (var outS = File.Create(args[0].Replace(".","distances-bin.")))
