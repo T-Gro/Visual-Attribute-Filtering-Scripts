@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28010.2026
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29505.145
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PatternBasedFileSplitter", "PatternBasedFileSplitter\PatternBasedFileSplitter.csproj", "{16694714-9737-42D0-9F38-F6EF351715B6}"
 EndProject
@@ -28,6 +28,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LargeFileFilter", "LargeFileFilter\LargeFileFilter.csproj", "{DEBC53CE-AA62-436F-895F-431F3EF3C937}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "L2VectorSpaceJoiner", "L2VectorSpaceJoiner\L2VectorSpaceJoiner.csproj", "{298816F3-B3CC-4AF4-B400-26F6059DAF9A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NormalizeViaReferenceFile", "NormalizeViaReferenceFile\NormalizeViaReferenceFile.csproj", "{B9A0813A-4A11-4921-9D60-1BF954E6AE5E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -195,6 +197,18 @@ Global
 		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Release|x64.Build.0 = Release|Any CPU
 		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Release|x86.ActiveCfg = Release|Any CPU
 		{298816F3-B3CC-4AF4-B400-26F6059DAF9A}.Release|x86.Build.0 = Release|Any CPU
+		{B9A0813A-4A11-4921-9D60-1BF954E6AE5E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9A0813A-4A11-4921-9D60-1BF954E6AE5E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9A0813A-4A11-4921-9D60-1BF954E6AE5E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B9A0813A-4A11-4921-9D60-1BF954E6AE5E}.Debug|x64.Build.0 = Debug|Any CPU
+		{B9A0813A-4A11-4921-9D60-1BF954E6AE5E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B9A0813A-4A11-4921-9D60-1BF954E6AE5E}.Debug|x86.Build.0 = Debug|Any CPU
+		{B9A0813A-4A11-4921-9D60-1BF954E6AE5E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9A0813A-4A11-4921-9D60-1BF954E6AE5E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B9A0813A-4A11-4921-9D60-1BF954E6AE5E}.Release|x64.ActiveCfg = Release|Any CPU
+		{B9A0813A-4A11-4921-9D60-1BF954E6AE5E}.Release|x64.Build.0 = Release|Any CPU
+		{B9A0813A-4A11-4921-9D60-1BF954E6AE5E}.Release|x86.ActiveCfg = Release|Any CPU
+		{B9A0813A-4A11-4921-9D60-1BF954E6AE5E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
