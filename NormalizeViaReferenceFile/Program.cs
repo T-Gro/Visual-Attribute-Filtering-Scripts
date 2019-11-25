@@ -22,6 +22,7 @@ namespace NormalizeViaReferenceFile
 
             foreach (var of in oldFiles)
             {
+                Console.WriteLine("Start " + of);
                 var binMaximas = new float[10000];
                 var lineNo = 0;
 
@@ -37,35 +38,40 @@ namespace NormalizeViaReferenceFile
                         }
                         catch (Exception ex)
                         {                        
-                            Console.WriteLine($"LineNo = {lineNo}; Index {i} = {parts[i]}");
+                            //Console.WriteLine($"LineNo = {lineNo}; Index {i} = {parts[i]}");
                             continue;
                         }
                         
                     }
                 }
 
-                var newFileName = of.Replace("-2017.csv", "-bata2019.csv");
-                using(var sw = new StreamWriter(newFileName.Replace(".csv","-normalized.csv")))
+                var newFileNames = new string[] { of.Replace("-2017.csv", "-bata2019.csv"), of.Replace("-2017.csv", "-filtered.csv") };
+                foreach (var newFileName in newFileNames)
                 {
-                    foreach (var line in File.ReadLines(newFileName))
+                    Console.WriteLine("Start " + newFileName);
+                    using (var sw = new StreamWriter(newFileName.Replace(".csv", "-normalized.csv")))
                     {
-                        var parts = line.Split(delimiter);
-                        sw.Write(parts[0]);
-                        sw.Write(';');
-                        for (int i = 1; i < parts.Length; i++)
+                        foreach (var line in File.ReadLines(newFileName))
                         {
-                            var item = float.Parse(parts[i]);
-                            var normalized = item == 0.0 ? item : (item / binMaximas[i]);
-                            sw.Write(normalized.ToString("F3"));
-                            if (i == parts.Length - 1)
-                                sw.WriteLine();
-                            else
-                                sw.Write(';');
+                            var parts = line.Split(delimiter);
+                            sw.Write(parts[0]);
+                            sw.Write(';');
+                            for (int i = 1; i < parts.Length; i++)
+                            {
+                                var item = float.Parse(parts[i]);
+                                var normalized = item == 0.0 ? item : (item / binMaximas[i]);
+                                sw.Write(normalized.ToString("F3"));
+                                if (i == parts.Length - 1)
+                                    sw.WriteLine();
+                                else
+                                    sw.Write(';');
+                            }
                         }
                     }
+                    Console.WriteLine("Done");
                 }
 
-                Console.WriteLine($"{of} : {String.Join(";", binMaximas.Select(f => f.ToString("F2")))}");
+                
             }
 
             Console.WriteLine("Press enter to exit");

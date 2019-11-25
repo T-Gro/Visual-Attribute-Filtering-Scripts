@@ -15,36 +15,38 @@ namespace L2VectorSpaceJoiner
         static void Main(string[] args)
         {
             Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+
+            Console.WriteLine("Parsing");
+
             var newFile = File.ReadAllLines(args[0]).Select(ParseLine).ToArray();
             var oldFile = File.ReadAllLines(args[1]).Select(ParseLine).ToArray();
-
+            Console.WriteLine("Parsed");
             Console.WriteLine($"Expecting {newFile.Length} * {oldFile.Length} = {newFile.Length * oldFile.Length} calculations.");
 
-            var allPairs =
-                 (from n in newFile.AsParallel()
-                  from o in oldFile
-                  let d = L2Distance(n.data, o.data)
-                  select new { N = n.name, O = o.name, Distance = d }).ToList();
-                  
-            var byNew = allPairs.ToLookup(x => x.N);
+            var perOld =
+                (from o in oldFile.AsParallel()
+                 let mark512 = newFile.Select(x => new { x.name, D = L2Distance(x.data, o.data) }).OrderBy(x => x.D).ElementAt(512)
+                 select new { OldName = o.name, Treshold = mark512.D }).ToDictionary(x => x.OldName, x => x.Treshold);
 
-            var maxPerOld = allPairs
-                .GroupBy(x => x.O, x => x.Distance)
-                .Select(g => new { Old = g.Key, K512 = g.OrderBy(d => d).ElementAt(512) })
-                .ToDictionary(x => x.Old);
-
+            Console.WriteLine("Old treshold calced");
 
             var sg = new SimilarityGraph
             {
-                ResultsForNewImages = byNew.ToDictionary(x => x.Key, x => x.Select(y => new DistancesToOldImages { OldPatchName = y.O, Distance = Math.Min(y.Distance, maxPerOld[y.O].K512) }).ToArray())
+                OldNameTreshold512 = perOld,
+                ResultsForNewImages = newFile.AsParallel()
+                .Select(nf => new { Name = nf.name, Hits = oldFile.Select(of => new DistancesToOldImages { OldPatchName = of.name, Distance = L2Distance(nf.data, of.data) }).Where(x => x.Distance < perOld[x.OldPatchName]).ToArray() })
+                .ToDictionary(x => x.Name, x => x.Hits)                
             };
+
+            Console.WriteLine("Graph created");
 
             using (var outS = File.Create(args[0].Replace(".","distances-bin.")))
             {
                 Serializer.Serialize(outS, sg);
             }
 
-      
+            Console.WriteLine("Graph saved");
+
         }
 
         static char[] Delimiter = new char[] { ';' };
@@ -52,9 +54,6 @@ namespace L2VectorSpaceJoiner
 
         private static float L2Distance(float[] x1,float[] x2)
         {
-            if (Counter++ % 1000 == 0)
-                Console.Write('.');
-
             float res = 0.0f;
             for (int i = 0; i < x1.Length; i++)
             {
@@ -77,7 +76,10 @@ namespace L2VectorSpaceJoiner
         {
             [ProtoMember(1)]
             public Dictionary<string, DistancesToOldImages[]> ResultsForNewImages { get; set; }
+            [ProtoMember(2)]
+            public Dictionary<string,float> OldNameTreshold512 { get; set; }
         }
+       
 
         [ProtoContract]
         public class DistancesToOldImages
